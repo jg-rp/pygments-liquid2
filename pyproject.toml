@@ -1,0 +1,134 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pygments-liquid2"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [{ name = "James Prior", email = "jamesgr.prior@gmail.com" }]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ["pygments>=2"]
+
+[project.urls]
+Documentation = "https://github.com/jg-rp/pygments-liquid2#readme"
+Issues = "https://github.com/jg-rp/pygments-liquid2/issues"
+Source = "https://github.com/jg-rp/pygments-liquid2"
+
+[tool.hatch.version]
+path = "src/pygments_liquid2/__about__.py"
+
+[tool.hatch.envs.default]
+dependencies = ["mypy", "pytest", "pytest-cov", "ruff", "twine"]
+
+[tool.hatch.envs.default.scripts]
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=liquid2 --cov=tests {args}"
+cov-html = "pytest --cov-report=html --cov-config=pyproject.toml --cov=liquid2 --cov=tests {args}"
+no-cov = "cov --no-cov {args}"
+test = "pytest {args}"
+lint = "ruff check ."
+typing = "mypy"
+
+[tool.coverage.run]
+source_pkgs = ["pygments_liquid2", "tests"]
+branch = true
+parallel = true
+omit = ["src/pygments_liquid2/__about__.py"]
+
+[tool.coverage.paths]
+pygments_liquid2 = [
+  "src/pygments_liquid2",
+  "*/pygments-liquid2/src/pygments_liquid2",
+]
+tests = ["tests", "*/pygments-liquid2/tests"]
+
+[tool.coverage.report]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+
+[tool.mypy]
+files = "pygments_liquid2"
+python_version = "3.10"
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+local_partial_types = true
+no_implicit_reexport = true
+strict = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = false
+warn_return_any = true
+warn_unreachable = true
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ARG",
+  "B",
+  "BLE",
+  "C4",
+  "D",
+  "E",
+  "F",
+  "FBT",
+  "I",
+  "ICN",
+  "ISC",
+  "N",
+  "PIE",
+  "PL",
+  "PT",
+  "Q",
+  "RET",
+  "RSE",
+  "S",
+  "SIM",
+  "SLF",
+  "T10",
+  "T20",
+  "TCH",
+  "TID",
+  "YTT",
+]
+
+ignore = [
+  "A002",
+  "S105",
+  "S101",
+  "D107",
+  "D105",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "SIM108",
+  "PT001",
+]
+
+fixable = ["I"]
+unfixable = []
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"src/pygments_liquid2/__init__.py" = ["D104"]
