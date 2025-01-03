@@ -10,7 +10,7 @@ from pygments.token import Token
 from pygments.token import Whitespace
 from pygments.token import _TokenType
 
-from liquid2_lexer import ExtendedLiquidLexer
+from liquid2_lexer import StandardLiquidLexer
 
 
 @dataclass
@@ -72,7 +72,7 @@ TEST_CASES = [
 ]
 
 
-LEXER = ExtendedLiquidLexer()
+LEXER = StandardLiquidLexer()
 
 
 @pytest.mark.parametrize("case", TEST_CASES, ids=operator.attrgetter("name"))
