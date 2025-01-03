@@ -4,7 +4,6 @@ There's also `ExtendedLiquidLexer`, which should be more "correct" than the
 Liquid lexer bundled with Pygments.
 """
 
-import re
 from typing import Iterable
 from typing import Match
 
@@ -35,6 +34,7 @@ class ExtendedLiquidLexer(ExtendedRegexLexer):
     - Inline comment tags (`{% # some comment %}`).
     - `{% liquid %}` tags.
     - Bracketed variable and index syntax (`foo[bar]["with a space"][1]`).
+    - Tag and output expressions that span multiple lines.
 
     We've also removed the `not` operator as Shopify/Liquid does not have a logical
     `not` operator.
@@ -46,9 +46,19 @@ class ExtendedLiquidLexer(ExtendedRegexLexer):
     filenames = ["*.liquid"]
     version_added = "2.0"
 
-    liquid_reserved_words = {"true", "false", "nil", "null", "with", "required", "as"}
-    liquid_operator_words = {"and", "or", "contains", "in"}
-    re_param_delimiter = re.compile(r"\s*[:=]", re.MULTILINE)
+    # The token type to use for markup delimiters (`{{`, `}}`, `{%` and `%}`).
+    # Change this to Comment.Preproc for DelegatingLexer
+    delimiter_token = Punctuation
+
+    # The token type to use for control flow tag names.
+    control_flow_token = Keyword.Reserved
+
+    # The token type to use for all other tag names.
+    # Change this to Keyword to match the Django lexer
+    tag_name_token = Name.Tag
+
+    # Non-markup token type. Change this to Other for DelegatingLexer.
+    text_token = Text
 
     def endcomment_callback(  # noqa: D102
         self,
@@ -62,7 +72,7 @@ class ExtendedLiquidLexer(ExtendedRegexLexer):
             index = match.start()
             for group, token_type in zip(
                 match.groups(),
-                (Punctuation, Whitespace, Name.Tag, Whitespace, Punctuation),
+                (Punctuation, Whitespace, self.tag_name_token, Whitespace, Punctuation),
             ):
                 yield (index, token_type, group)
                 index += len(group)
@@ -70,79 +80,61 @@ class ExtendedLiquidLexer(ExtendedRegexLexer):
         ctx.stack.pop()
         ctx.pos = match.end()
 
-    # TODO: don't really need word_callback anymore, it can be done without
-    def word_callback(  # noqa: D102
-        self,
-        match: Match[str],
-        ctx: LexerContext,
-    ) -> Iterable[tuple[int, _TokenType, str]]:
-        end = match.end()
-        word = match.group(0)
-
-        try:
-            next_ch = ctx.text[end]
-        except IndexError:
-            next_ch = ""
-
-        if next_ch in (".", "["):
-            # This word is the start of a path (to a variable).
-            yield (match.start(), Name.Variable, word)
-            ctx.stack.append("path")
-        elif self.re_param_delimiter.match(ctx.text, end):
-            # Looks like a named parameter/argument
-            yield (match.start(), Name.Attribute, word)
-        elif word in self.liquid_reserved_words:
-            yield (match.start(), Keyword.Constant, word)
-        elif word in self.liquid_operator_words:
-            yield (match.start(), Operator.Word, word)
-        else:
-            yield (match.start(), Name.Variable, word)
-
-        ctx.pos = end
-
     tokens = {
         "root": [
-            (r"[^{]+", Text),
+            (r"[^{]+", text_token),
             (
                 r"(\{%-?)(\s*)(\#)",
-                bygroups(Punctuation, Whitespace, Comment),
+                bygroups(delimiter_token, Whitespace, Comment),
                 "inline-comment",
             ),
             (
                 r"(\{%-?)(\s*)(liquid)",
-                bygroups(Punctuation, Whitespace, Name.Tag),
+                bygroups(delimiter_token, Whitespace, tag_name_token),
                 "line-statements",
             ),
             (
                 r"(\{%-?)(\s*)(comment)(\s*)(-?%})",
-                bygroups(Punctuation, Whitespace, Name.Tag, Whitespace, Punctuation),
+                bygroups(
+                    delimiter_token,
+                    Whitespace,
+                    tag_name_token,
+                    Whitespace,
+                    delimiter_token,
+                ),
                 "block-comment",
             ),
             (
                 r"(\{%-?)(\s*)(raw)(\s*)(-?%})",
-                bygroups(Punctuation, Whitespace, Name.Tag, Whitespace, Punctuation),
+                bygroups(
+                    delimiter_token,
+                    Whitespace,
+                    tag_name_token,
+                    Whitespace,
+                    delimiter_token,
+                ),
                 "raw-tag",
             ),
             (
-                r"(\{%-?)(\s*)(if|unless|else|elsif|case|when|endif|endunless|endcase)\b(\s*)",
-                bygroups(Punctuation, Whitespace, Keyword.Reserved, Whitespace),
+                r"(\{%-?)(\s*)(if|unless|else|elsif|case|when|endif|endunless|endcase|for|endfor)\b(\s*)",
+                bygroups(delimiter_token, Whitespace, control_flow_token, Whitespace),
                 "tag-expression",
             ),
             (
                 r"(\{%-?)(\s*)([a-z][a-z_0-9]*)(\s*)",
-                bygroups(Punctuation, Whitespace, Name.Tag, Whitespace),
+                bygroups(delimiter_token, Whitespace, tag_name_token, Whitespace),
                 "tag-expression",
             ),
             (
                 r"(\{\{-?)(\s*)",
-                bygroups(Punctuation, Whitespace),
+                bygroups(delimiter_token, Whitespace),
                 "output-expression",
             ),
-            (r"\{", Text),
+            (r"\{", text_token),
         ],
         "inline-comment": [
             (r"[^\-%]+", Comment),
-            (r"-?%}", Punctuation, "#pop"),
+            (r"-?%}", delimiter_token, "#pop"),
             (r"[\-%]", Comment),
         ],
         "block-comment": [
@@ -155,18 +147,24 @@ class ExtendedLiquidLexer(ExtendedRegexLexer):
             (r"[^{]+", Text),
             (
                 r"(\{%-?)(\s*)(endraw)(\s*)(-?%\})",
-                bygroups(Punctuation, Whitespace, Name.Tag, Whitespace, Punctuation),
+                bygroups(
+                    delimiter_token,
+                    Whitespace,
+                    tag_name_token,
+                    Whitespace,
+                    delimiter_token,
+                ),
                 "#pop",
             ),
             (r"\{", Text),
         ],
         "tag-expression": [
-            include("expression"),
-            (r"-?%}", Punctuation, "#pop"),
+            include("multiline-expression"),
+            (r"-?%}", delimiter_token, "#pop"),
         ],
         "output-expression": [
-            include("expression"),
-            (r"-?}}", Punctuation, "#pop"),
+            include("multiline-expression"),
+            (r"-?}}", delimiter_token, "#pop"),
         ],
         "expression": [
             (r'"', String.Double, "double-string"),
@@ -175,12 +173,39 @@ class ExtendedLiquidLexer(ExtendedRegexLexer):
             (r"\d+", Number.Integer),
             (
                 r"(\|)(\s*)([\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*)",
-                bygroups(Punctuation, Whitespace, Name.Function),
+                bygroups(Operator, Whitespace, Name.Function),
             ),
             (r"\[", Punctuation, "path"),
-            (r"[\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*", word_callback),
+            (
+                r"([\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*)([\[\.])",
+                bygroups(Name.Variable, Punctuation),
+                "path",
+            ),
+            (
+                r"([\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*)(\s*)(?=[:=])",
+                bygroups(Name.Attribute, Whitespace),
+            ),
+            (
+                r"(true|false|nil|null|with|reversed|as)\b",
+                Keyword.Constant,
+            ),
+            (
+                r"(and|or|contains|in)\b",
+                Operator.Word,
+            ),
+            (
+                r"[\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*",
+                Name.Variable,
+            ),
             (r">=|<=|==|!=|<>|>|<|=", Operator),
             (r"[,:]|\.\.|\(|\)", Punctuation),
+        ],
+        "multiline-expression": [
+            include("expression"),
+            (r"[ \t\n\r]+", Whitespace),
+        ],
+        "inline-expression": [
+            include("expression"),
             (r"[ \t]+", Whitespace),
         ],
         "single-string": [
@@ -204,23 +229,23 @@ class ExtendedLiquidLexer(ExtendedRegexLexer):
             default("#pop"),
         ],
         "line-statements": [
-            (r"-?%}", Punctuation, "#pop"),
+            (r"-?%}", delimiter_token, "#pop"),
             (
-                r"(\s*)(if|unless|else|elsif|case|when|endif|endunless|endcase)\b",
-                bygroups(Whitespace, Keyword.Reserved),
+                r"(\s*)(if|unless|else|elsif|case|when|endif|endunless|endcase|for|endfor)\b",
+                bygroups(Whitespace, control_flow_token),
                 "line-expression",
             ),
             (
                 r"(\s*)([a-z][a-z_0-9]+)",
-                bygroups(Whitespace, Name.Tag),
+                bygroups(Whitespace, tag_name_token),
                 "line-expression",
             ),
             (r"[ \t]+", Whitespace),
         ],
         "line-expression": [
             (r"[ \t\r]*\n", Whitespace, "#pop"),
-            include("expression"),
-            (r"-?%}", Punctuation, ("#pop", "#pop")),
+            include("inline-expression"),
+            (r"-?%}", delimiter_token, ("#pop", "#pop")),
         ],
     }
 
@@ -238,3 +263,4 @@ class Liquid2Lexer(ExtendedLiquidLexer):
 
 
 # TODO: DelegatingLexer
+# - with Comment.Preproc instead of Punctuation

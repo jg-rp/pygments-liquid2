@@ -10,9 +10,11 @@ Just regular text - what happens?
 
 Hello {% # some comment %}, {{ you }}!
 
+{% comment %}My lovely {{comment}} {% comment %}{% endcomment %}{% endcomment %}
+
 {% assign foo = bar %}
 
-{% for x in (1..5) %}
+{% for x in (1..5) reversed %}
     {{ forloop.index0 }}{{ x }}
 {% endfor %}
 
@@ -24,7 +26,7 @@ Hello {% # some comment %}, {{ you }}!
     increment y
     assign foo = bar %}
 
-{% comment %}My lovely {{comment}} {% comment %}{% endcomment %}{% endcomment %}
+{% include "some_partial.liquid" with x as y %}
 
 {% custom_tag params: true %}
 {% custom_block my="abc" c = false %}
@@ -42,10 +44,22 @@ Hello {% # some comment %}, {{ you }}!
 {% cycle 'group1': '1', var, 2 %}
 {% cycle group2: '1', var, 2 %}
 
-{% if a == 'B' %}
+{% if a == 'B' and foo %}
 {% elsif a == 'C%}' %}
 {% else %}
 {% endif %}
+
+{% 
+    if a == b
+    and c == "d"
+    or e == f.g
+
+ %}
+    Hello
+{%
+    endif
+%}
+
 
 {% unless not a %}
 {% else %}
