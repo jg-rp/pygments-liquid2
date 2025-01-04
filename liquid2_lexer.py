@@ -424,6 +424,11 @@ class Liquid2Lexer(ExtendedRegexLexer):
         "root": [
             (r"[^{]+", Token.Liquid.Text),
             (
+                r"(\{%[\-\~\+]?)(\s*)(liquid)",
+                bygroups(Token.Liquid.Delimiter, Whitespace, Token.Liquid.Tag.Name),
+                "line-statements",
+            ),
+            (
                 r"\{(\#+)[\-\~\+]?",
                 comment_callback,
             ),
@@ -453,11 +458,6 @@ class Liquid2Lexer(ExtendedRegexLexer):
                     Token.Liquid.Delimiter,
                 ),
                 "raw-tag",
-            ),
-            (
-                r"(\{[\-\~\+]?)(\s*)(liquid)",
-                bygroups(Token.Liquid.Delimiter, Whitespace, Token.Liquid.Tag.Name),
-                "line-statements",
             ),
             (
                 r"(\{%[\-\~\+]?)(\s*)(if|unless|else|elsif|case|when|endif|endunless|endcase|for|endfor)\b(\s*)",
@@ -602,6 +602,7 @@ class Liquid2Lexer(ExtendedRegexLexer):
             default("#pop"),
         ],
         "line-statements": [
+            (r"(\s*)(\#)", bygroups(Whitespace, Comment), "line-comment"),
             (r"[\-\~\+]?%}", Token.Liquid.Delimiter, "#pop"),
             (
                 r"(\s*)(if|unless|else|elsif|case|when|endif|endunless|endcase|for|endfor)\b",
@@ -619,6 +620,12 @@ class Liquid2Lexer(ExtendedRegexLexer):
             (r"[ \t\r]*\n", Whitespace, "#pop"),
             include("inline-expression"),
             (r"[\-\~\+]?%}", Token.Liquid.Delimiter, ("#pop", "#pop")),
+        ],
+        "line-comment": [
+            (r"\n", Whitespace, "#pop"),
+            (r"[^\-\~\+%\n]*", Comment),
+            (r"[\-\~\+]?%}", Token.Liquid.Delimiter, ("#pop", "#pop")),
+            (r"[\-\~\+%]", Comment),
         ],
     }
 
