@@ -350,7 +350,16 @@ class HtmlLiquidLexer(DelegatingLexer):
 
 
 class Liquid2Lexer(ExtendedRegexLexer):
-    """Lexer for Liquid templates including syntax introduced with Liquid2."""
+    """Lexer for Liquid templates including syntax introduced with Liquid2.
+
+    On top of the standard Liquid lexer, we add:
+
+    - New style comments `{# some comment #}`
+    - Template strings `{{ "Hello, ${you | upcase}" }}`
+    - Some extra keywords
+    - Scientific notation for floats and ints
+    - More whitespace control characters
+    """
 
     name = "liquid2"
     url = "https://github.com/jg-rp/python-liquid2"
@@ -374,7 +383,33 @@ class Liquid2Lexer(ExtendedRegexLexer):
     # Non-markup token type. Change this to Other for DelegatingLexer.
     text_token_type = Text
 
-    def endcomment_callback(  # noqa: D102
+    def comment_callback(  # noqa: D102
+        self,
+        match: Match[str],
+        ctx: LexerContext,
+    ) -> Iterable[tuple[int, _TokenType, str]]:
+        ctx.__dict__["comment_delimiter"] = match.group(1)
+        yield (match.start(), Token.Liquid.Delimiter, match.group())
+        ctx.stack.append("comment")
+        ctx.pos = match.end()
+
+    def end_comment_callback(  # noqa: D102
+        self,
+        match: Match[str],
+        ctx: LexerContext,
+    ) -> Iterable[tuple[int, _TokenType, str]]:
+        comment_delimiter: str = ctx.__dict__["comment_delimiter"]
+        if match.group(2).startswith(comment_delimiter):
+            # The number of hashes match, close the comment.
+            yield (match.start(), Token.Liquid.Delimiter, match.group(0))
+            ctx.stack.pop()
+        else:
+            # The number of hashes don't match, so we're still in the comment.
+            yield (match.start(), Comment, match.group(0))
+
+        ctx.pos = match.end()
+
+    def end_block_comment_callback(  # noqa: D102
         self,
         match: Match[str],
         ctx: LexerContext,
@@ -400,22 +435,17 @@ class Liquid2Lexer(ExtendedRegexLexer):
         ctx.stack.pop()
         ctx.pos = match.end()
 
-    # TODO: `{# .. #}` comments
-    # TODO: `"hello ${you}!"` template strings
-    # TODO: scientific notation
-
     tokens = {
         "root": [
             (r"[^{]+", Token.Liquid.Text),
             (
+                r"\{(\#+)[\-\~\+]?",
+                comment_callback,
+            ),
+            (
                 r"(\{%[\-\~\+]?)(\s*)(\#)",
                 bygroups(Token.Liquid.Delimiter, Whitespace, Comment),
                 "inline-comment",
-            ),
-            (
-                r"(\{[\-\~\+]?)(\s*)(liquid)",
-                bygroups(Token.Liquid.Delimiter, Whitespace, Token.Liquid.Tag.Name),
-                "line-statements",
             ),
             (
                 r"(\{%[\-\~\+]?)(\s*)(comment)(\s*)([\-\~\+]?%})",
@@ -438,6 +468,11 @@ class Liquid2Lexer(ExtendedRegexLexer):
                     Token.Liquid.Delimiter,
                 ),
                 "raw-tag",
+            ),
+            (
+                r"(\{[\-\~\+]?)(\s*)(liquid)",
+                bygroups(Token.Liquid.Delimiter, Whitespace, Token.Liquid.Tag.Name),
+                "line-statements",
             ),
             (
                 r"(\{%[\-\~\+]?)(\s*)(if|unless|else|elsif|case|when|endif|endunless|endcase|for|endfor)\b(\s*)",
@@ -466,17 +501,22 @@ class Liquid2Lexer(ExtendedRegexLexer):
             ),
             (r"\{", Token.Liquid.Text),
         ],
+        "comment": [
+            (r"[^\-\~\+\#]+", Comment),
+            (r"([\-\~\+]?)(\#+})", end_comment_callback),
+            (r"[\-\~\+\#]", Comment),
+        ],
         "inline-comment": [
-            (r"[^\-%]+", Comment),
+            (r"[^\-\~\+%]+", Comment),
             (r"[\-\~\+]?%}", Token.Liquid.Delimiter, "#pop"),
-            (r"[\-%]", Comment),
+            (r"[\-\~\+%]", Comment),
         ],
         "block-comment": [
             (r"[^{]+", Comment),
             (r"{%[\-\~\+]?\s*comment\s*[\-\~\+]?%}", Comment, "#push"),
             (
                 r"(\{%[\-\~\+]?)(\s*)(endcomment)(\s*)([\-\~\+]?%\})",
-                endcomment_callback,
+                end_block_comment_callback,
             ),
             (r"\{", Comment),
         ],
@@ -506,8 +546,11 @@ class Liquid2Lexer(ExtendedRegexLexer):
         "expression": [
             (r'"', String.Double, "double-string"),
             (r"'", String.Single, "single-string"),
-            (r"\d+\.\d+", Number.Float),
-            (r"\d+", Number.Integer),
+            (
+                r"(?:-?[0-9]+\.[0-9]+(?:[eE][+-]?[0-9]+)?)|(-?[0-9]+[eE]-[0-9]+)",
+                Number.Float,
+            ),
+            (r"-?[0-9]+(?:[eE]\+?[0-9]+)?", Number.Integer),
             (
                 r"(\|\|?)(\s*)([\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*)",
                 bygroups(Operator, Whitespace, Name.Function),
@@ -548,12 +591,20 @@ class Liquid2Lexer(ExtendedRegexLexer):
         "single-string": [
             (r"\\.", String.Escape),
             (r"'", String.Single, "#pop"),
-            (r"[^\\']+", String.Single),
+            (r"\$\{", String.Interpol, "inside-interpol"),
+            (r"[^\\'\$]+", String.Single),
+            (r"\$", String.Single),
         ],
         "double-string": [
             (r"\\.", String.Escape),
             (r'"', String.Double, "#pop"),
-            (r'[^\\"]+', String.Double),
+            (r"\$\{", String.Interpol, "inside-interpol"),
+            (r'[^\\"\$]+', String.Double),
+            (r"\$", String.Double),
+        ],
+        "inside-interpol": [
+            (r"\}", String.Interpol, "#pop"),
+            include("inline-expression"),
         ],
         "path": [
             (r"\.", Punctuation),
@@ -585,6 +636,35 @@ class Liquid2Lexer(ExtendedRegexLexer):
             (r"[\-\~\+]?%}", Token.Liquid.Delimiter, ("#pop", "#pop")),
         ],
     }
+
+    def get_tokens_unprocessed(  # type: ignore[override]  # noqa: D102
+        self,
+        text: str | None = None,
+        context: LexerContext | None = None,
+    ) -> Iterator[tuple[int, _TokenType, str]]:
+        """Replace Token.Liquid.* with token types set as class attributes."""
+        for index, token, value in super().get_tokens_unprocessed(text, context):
+            if token is Token.Liquid.Text:
+                yield index, self.text_token_type, value
+            elif token is Token.Liquid.Delimiter:
+                yield index, self.delimiter_token_type, value
+            elif token is Token.Liquid.Tag.Name:
+                yield index, self.tag_name_token_type, value
+            elif token is Token.Liquid.ControlFlow:
+                yield index, self.control_flow_token_type, value
+            else:
+                yield index, token, value
+
+    @staticmethod
+    def analyse_text(text: str) -> float:  # noqa: D102
+        rv = 0.0
+        if re.search(r"\{%-?\s*(liquid|include|render|extends)", text) is not None:
+            rv += 0.5
+        if re.search(r"\{%-?\s*if\s*.*?%\}", text) is not None:
+            rv += 0.1
+        if re.search(r"\{\{.*?\}\}", text) is not None:
+            rv += 0.1
+        return rv
 
 
 class _DelegatedLiquid2Lexer(Liquid2Lexer):

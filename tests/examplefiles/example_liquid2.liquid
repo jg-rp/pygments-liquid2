@@ -1,0 +1,89 @@
+# This is an example file.
+
+{% raw %}
+some {{raw}} liquid syntax
+
+{% raw %}
+{% endraw %}
+
+Just regular text - what happens?
+
+Hello {% # some comment %}, {{ you }}!
+
+{# this is a comment #}
+
+{## 
+  this is a
+  {# nested #}
+  comment
+##}
+
+{% comment %}My lovely {{comment}} {% comment %}{% endcomment %}{% endcomment %}
+
+{% assign foo = bar %}
+
+{{ foo | plus: 1e2 | plus: 1e-2 | plus: 1E+2 }}
+{{ foo | plus: 1.2e3 | plus: 1.2e-3 | plus: 1.2E+3 }}
+
+{{ "Hello, ${you}!" }}
+{{ "Hello, ${you | upcase}!" }}
+{{ "Hello, \${you | upcase}!" }}
+
+{% for x in (1..5) reversed %}
+    {{ forloop.index0 }}{{ x }}
+{% endfor %}
+
+{% liquid
+    if foo
+        echo "bar" | upcase
+    endif
+
+    echo "Hello, ${you | upcase}!"
+ 
+    increment y
+    assign foo = bar %}
+
+{% include "some_partial.liquid" with x as y %}
+
+{% custom_tag params: true %}
+{% custom_block my="abc" c = false %}
+    Just usual {{liquid}}.
+{% endcustom_block %}
+
+{% another_tag "my string param" %}
+
+{{ variable | upcase }}
+{{ var.field | textilize | markdownify }}
+{{ var.field.property[0] | textilize | markdownify }}
+{{ 'string' | truncate: 100 param='df"g' }}
+
+{% cycle '1', 2, var %}
+{% cycle 'group1': '1', var, 2 %}
+{% cycle group2: '1', var, 2 %}
+
+{% if a == 'B' and foo %}
+{% elsif a == 'C%}' %}
+{% else %}
+{% endif %}
+
+{% 
+    if a == b
+    and c == "d"
+    or e == f.g
+
+ %}
+    Hello
+{%
+    endif
+%}
+
+
+{% unless not a %}
+{% else %}
+{% endunless %}
+
+{% case a %}
+{% when 'B' %}
+{% when 'C' %}
+{% else %}
+{% endcase %}
