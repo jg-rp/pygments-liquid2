@@ -2,12 +2,7 @@ import operator
 from dataclasses import dataclass
 
 import pytest
-from pygments.token import Comment
-from pygments.token import Name
-from pygments.token import Punctuation
-from pygments.token import Text
 from pygments.token import Token
-from pygments.token import Whitespace
 from pygments.token import _TokenType
 
 from liquid2_lexer import StandardLiquidLexer

@@ -58,19 +58,14 @@ class StandardLiquidLexer(ExtendedRegexLexer):
     # If this is installed, it should take priority over the Pygments Liquid lexer.
     priority = 0.5
 
-    # The token type to use for markup delimiters (`{{`, `}}`, `{%` and `%}`).
-    # Change this to Comment.Preproc for DelegatingLexer
-    delimiter_token_type = Punctuation
-
-    # The token type to use for control flow tag names.
-    control_flow_token_type = Keyword.Reserved
-
-    # The token type to use for all other tag names.
-    # Change this to Keyword to match the Django lexer
-    tag_name_token_type = Name.Tag
-
-    # Non-markup token type. Change this to Other for DelegatingLexer.
-    text_token_type = Text
+    # Map Liquid tokens to builtin tokens.
+    # These are overridden in subclasses when using the lexer with a delegating lexer.
+    token_map: dict[_TokenType, _TokenType] = {
+        Token.Liquid.Text: Text,
+        Token.Liquid.Delimiter: Punctuation,
+        Token.Liquid.Tag.Name: Name.Tag,
+        Token.Liquid.ControlFlow: Keyword.Reserved,
+    }
 
     def endcomment_callback(  # noqa: D102
         self,
@@ -284,22 +279,15 @@ class StandardLiquidLexer(ExtendedRegexLexer):
     ) -> Iterator[tuple[int, _TokenType, str]]:
         """Replace Token.Liquid.* with token types set as class attributes."""
         for index, token, value in super().get_tokens_unprocessed(text, context):
-            if token is Token.Liquid.Text:
-                yield index, self.text_token_type, value
-            elif token is Token.Liquid.Delimiter:
-                yield index, self.delimiter_token_type, value
-            elif token is Token.Liquid.Tag.Name:
-                yield index, self.tag_name_token_type, value
-            elif token is Token.Liquid.ControlFlow:
-                yield index, self.control_flow_token_type, value
-            else:
-                yield index, token, value
+            yield index, self.token_map.get(token, token), value
 
     @staticmethod
     def analyse_text(text: str) -> float:  # noqa: D102
         rv = 0.0
-        if re.search(r"\{%-?\s*(liquid|include|render)", text) is not None:
-            rv += 0.5
+        if re.search(r"\{%-?\s*liquid", text) is not None:
+            rv += 0.6
+        if re.search(r"\{%-?\s*(include|render)", text) is not None:
+            rv += 0.4  # Lower than Django/Jinja
         if re.search(r"\{%-?\s*if\s*.*?%\}", text) is not None:
             rv += 0.1
         if re.search(r"\{\{.*?\}\}", text) is not None:
@@ -310,10 +298,12 @@ class StandardLiquidLexer(ExtendedRegexLexer):
 class _DelegatedLiquidLexer(StandardLiquidLexer):
     """A `StandardLiquidLexer` configured for use in a `DelegatingLexer`."""
 
-    delimiter_token_type = Comment.Preproc
-    control_flow_token_type = Keyword
-    tag_name_token_type = Keyword
-    text_token_type = Other
+    token_map: dict[_TokenType, _TokenType] = {
+        Token.Liquid.Text: Other,
+        Token.Liquid.Delimiter: Comment.Preproc,
+        Token.Liquid.Tag.Name: Keyword,
+        Token.Liquid.ControlFlow: Keyword,
+    }
 
 
 class HtmlLiquidLexer(DelegatingLexer):
@@ -369,19 +359,14 @@ class Liquid2Lexer(ExtendedRegexLexer):
     # If this is installed, it should take priority over the standard Liquid lexer.
     priority = 0.6
 
-    # The token type to use for markup delimiters (`{{`, `}}`, `{%` and `%}`).
-    # Change this to Comment.Preproc for DelegatingLexer
-    delimiter_token_type = Punctuation
-
-    # The token type to use for control flow tag names.
-    control_flow_token_type = Keyword.Reserved
-
-    # The token type to use for all other tag names.
-    # Change this to Keyword to match the Django lexer
-    tag_name_token_type = Name.Tag
-
-    # Non-markup token type. Change this to Other for DelegatingLexer.
-    text_token_type = Text
+    # Map Liquid tokens to builtin tokens.
+    # These are overridden in subclasses when using the lexer with a delegating lexer.
+    token_map: dict[_TokenType, _TokenType] = {
+        Token.Liquid.Text: Text,
+        Token.Liquid.Delimiter: Punctuation,
+        Token.Liquid.Tag.Name: Name.Tag,
+        Token.Liquid.ControlFlow: Keyword.Reserved,
+    }
 
     def comment_callback(  # noqa: D102
         self,
@@ -644,22 +629,15 @@ class Liquid2Lexer(ExtendedRegexLexer):
     ) -> Iterator[tuple[int, _TokenType, str]]:
         """Replace Token.Liquid.* with token types set as class attributes."""
         for index, token, value in super().get_tokens_unprocessed(text, context):
-            if token is Token.Liquid.Text:
-                yield index, self.text_token_type, value
-            elif token is Token.Liquid.Delimiter:
-                yield index, self.delimiter_token_type, value
-            elif token is Token.Liquid.Tag.Name:
-                yield index, self.tag_name_token_type, value
-            elif token is Token.Liquid.ControlFlow:
-                yield index, self.control_flow_token_type, value
-            else:
-                yield index, token, value
+            yield index, self.token_map.get(token, token), value
 
     @staticmethod
     def analyse_text(text: str) -> float:  # noqa: D102
         rv = 0.0
-        if re.search(r"\{%-?\s*(liquid|include|render|extends)", text) is not None:
-            rv += 0.5
+        if re.search(r"\{%-?\s*liquid", text) is not None:
+            rv += 0.6
+        if re.search(r"\{%-?\s*(include|render|extends|block)", text) is not None:
+            rv += 0.4  # Lower than Django/Jinja
         if re.search(r"\{%-?\s*if\s*.*?%\}", text) is not None:
             rv += 0.1
         if re.search(r"\{\{.*?\}\}", text) is not None:
@@ -670,10 +648,12 @@ class Liquid2Lexer(ExtendedRegexLexer):
 class _DelegatedLiquid2Lexer(Liquid2Lexer):
     """A `Liquid2Lexer` configured for use in a `DelegatingLexer`."""
 
-    delimiter_token_type = Comment.Preproc
-    control_flow_token_type = Keyword
-    tag_name_token_type = Keyword
-    text_token_type = Other
+    token_map: dict[_TokenType, _TokenType] = {
+        Token.Liquid.Text: Other,
+        Token.Liquid.Delimiter: Comment.Preproc,
+        Token.Liquid.Tag.Name: Keyword,
+        Token.Liquid.ControlFlow: Keyword,
+    }
 
 
 class HtmlLiquid2Lexer(DelegatingLexer):
@@ -682,8 +662,8 @@ class HtmlLiquid2Lexer(DelegatingLexer):
     Nested Javascript and CSS is highlighted too.
     """
 
-    name = "HTML+Liquid"
-    aliases = ["html+liquid", "htmlliquid"]
+    name = "HTML+Liquid2"
+    aliases = ["html+liquid2", "html+liquid", "htmlliquid"]
     filenames = [
         "*.html.liquid",
         "*.htm.liquid",

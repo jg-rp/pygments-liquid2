@@ -49,7 +49,7 @@ typing = "mypy"
 
 
 [tool.mypy]
-files = "pygments_liquid2"
+files = "liquid2_lexer.py"
 python_version = "3.10"
 disallow_subclassing_any = true
 disallow_untyped_calls = false
