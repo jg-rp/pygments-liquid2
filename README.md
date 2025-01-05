@@ -38,7 +38,7 @@ Some Liquid lexers for Pygments.
 pip install pygments-liquid2
 ```
 
-This package uses the [Pygments plugin entry point](https://pygments.org/docs/plugins/), so, if this packages is installed in your Python environment, additional Liquid lexers will be available automatically. Confirm this by listing available lexers with one of the following methods.
+This package uses the [Pygments plugin entry point](https://pygments.org/docs/plugins/), so, if its installed in your Python environment, additional Liquid lexers will be available automatically. Confirm this by listing lexers with one of the following methods.
 
 ### Listing lexers on the command line:
 
