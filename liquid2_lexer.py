@@ -543,8 +543,12 @@ class Liquid2Lexer(ExtendedRegexLexer):
             (r"\[", Punctuation, "path"),
             (
                 r"([\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*)([\[\.])",
-                bygroups(Name.Variable, Punctuation),
+                bygroups(Name.Other, Punctuation),
                 "path",
+            ),
+            (
+                r"([\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*)(\s*)(=>)",
+                bygroups(Name.Other, Whitespace, Operator),
             ),
             (
                 r"([\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*)(\s*)(?=[:=])",
@@ -560,9 +564,9 @@ class Liquid2Lexer(ExtendedRegexLexer):
             ),
             (
                 r"[\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*",
-                Name.Variable,
+                Name.Other,
             ),
-            (r">=|<=|==|!=|<>|>|<|=", Operator),
+            (r">=|<=|=>|==|!=|<>|>|<|=", Operator),
             (r"[,:]|\.\.|\(|\)", Punctuation),
         ],
         "multiline-expression": [
@@ -595,7 +599,7 @@ class Liquid2Lexer(ExtendedRegexLexer):
             (r"\.", Punctuation),
             (r"\[", Punctuation, "#push"),
             (r"]", Punctuation, "#pop"),
-            (r"[\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*", Name.Variable),
+            (r"[\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*", Name.Other),
             (r"\d+", Number.Integer),
             (r'"', String.Double, "double-string"),
             (r"'", String.Single, "single-string"),

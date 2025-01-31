@@ -21,6 +21,10 @@ Hello {% # some comment %}, {{ you }}!
 {% comment %}My lovely {{comment}} {% comment %}{% endcomment %}{% endcomment %}
 
 {% assign foo = bar %}
+{% assign foo = bar | map: item => item.a[0] %}
+{% assign foo = bar | where: (item, index) => item["baz"] > index %}
+{% assign my_array = 1, 2, 3 %}
+{% assign my_array = foo, bar, baz | where: i => i.j %}
 
 {{ foo | plus: 1e2 | plus: 1e-2 | plus: 1E+2 }}
 {{ foo | plus: 1.2e3 | plus: 1.2e-3 | plus: 1.2E+3 }}
