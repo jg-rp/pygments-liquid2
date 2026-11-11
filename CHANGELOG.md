@@ -1,6 +1,6 @@
 # Pygments Liquid2 Change Log
 
-## Version 0.3.0 (unreleased)
+## Version 0.3.0
 
 - Add arithmetic operators to `Liquid2Lexer`.
 
