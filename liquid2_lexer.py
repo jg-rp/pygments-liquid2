@@ -566,7 +566,10 @@ class Liquid2Lexer(ExtendedRegexLexer):
                 r"[\u0080-\uFFFFa-zA-Z_][\u0080-\uFFFFa-zA-Z0-9_-]*",
                 Name.Other,
             ),
-            (r">=|<=|=>|==|!=|<>|>|<|=", Operator),
+            (
+                r">=|<=|=>|==|!=|<>|>|<|=|\*|/|\+(?![\+\-\}])|/-(?![\+\-\}])|%(?![\+\-\}])",
+                Operator,
+            ),
             (r"[,:]|\.\.|\(|\)", Punctuation),
         ],
         "multiline-expression": [
